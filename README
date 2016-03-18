@@ -1,0 +1,4 @@
+pyfuego
+=======
+
+Quick & dirty Cython wrapper of Fuego Game & Board classes.
