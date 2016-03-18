@@ -52,22 +52,4 @@ cdef class PyGoGame:
                 else:
                     counts[i, j] = self.thisgame.Board().NumLiberties(Pt(i + 1, j + 1))
 
-
-cpdef load_and_print(filename):
-    game = PyGoGame(filename.encode('ascii'))
-    print game.at_end()
-    while not game.at_end():
-        game.print_board()
-        libs = np.zeros((19, 19), dtype=np.int32)
-        game.liberties(libs)
-        print (libs.T[::-1, :])
-        print ("")
-
-        game.next_move()
-
-cpdef init():
-    fuego_init()
-
-
-print("calling init")
-init()
+fuego_init()
