@@ -2,3 +2,7 @@ pyfuego
 =======
 
 Quick & dirty Cython wrapper of Fuego Game & Board classes.
+
+You'll need a copy of https://github.com/svn2github/fuego
+- Built with debug: `env CXXFLAGS=-g ./configure --enable-assert; make`
+- set FUEGO_ROOT to the directory where you built Fuego
