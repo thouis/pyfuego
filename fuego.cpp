@@ -2,12 +2,14 @@
 #include <fstream>
 
 #include "SgInit.h"
-#include "GoInit.h"
-#include "GoGame.h"
-#include "GoNodeUtil.h"
+#include "SgSystem.h"
 #include "SgGameReader.h"
 #include "SgNode.h"
 #include "SgPoint.h"
+
+#include "GoInit.h"
+#include "GoGame.h"
+#include "GoNodeUtil.h"
 
 #define NEXT SgNode::NEXT
 

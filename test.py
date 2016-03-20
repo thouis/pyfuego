@@ -5,14 +5,25 @@ import sys
 import go
 import numpy as np
 
+stonetochar = {go.EMPTY: ' ',
+               go.BLACK: 'X',
+               go.WHITE: 'O'}
+
 def load_and_print(filename):
     game = go.PyGoGame(filename.encode('ascii'))
     while not game.at_end():
         game.print_board()
+        stones = np.zeros((19, 19), dtype=np.int32)
         libs = np.zeros((19, 19), dtype=np.int32)
         game.liberties(libs)
-        print (libs.T[::-1, :])
-        print ("")
+        game.black_white_empty(stones)
+        for row in stones.T[::-1, :]:
+            print(" ".join(stonetochar[c] for c in row))
+        print("")
+        print(libs.T[::-1, :])
+        print("")
+        print("")
+        print("")
 
         game.next_move()
 
