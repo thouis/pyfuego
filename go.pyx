@@ -77,16 +77,33 @@ cdef class PyGoGame:
     cpdef black_white_empty(self, np.int32_t[:, :] bwe):
         ''' sets each value to EMPTY, BLACK, or WHITE '''
         cdef:
-            int i, j, c
+            int row, col, c
 
         assert bwe.shape[0] == self.thisgame.Board().Size()
         assert bwe.shape[1] == self.thisgame.Board().Size()
 
-        for i in range(bwe.shape[0]):
-            for j in range(bwe.shape[1]):
-                bwe[i, j] = self.thisgame.Board().GetColor(Pt(j + 1, i + 1))
+        for row in range(bwe.shape[0]):
+            for col in range(bwe.shape[1]):
+                bwe[row, col] = self.thisgame.Board().GetColor(Pt(col + 1, row + 1))
 
     cpdef liberties(self, np.int32_t[:, :] counts):
+        cdef:
+            int row, col
+
+        assert counts.shape[0] == self.thisgame.Board().Size()
+        assert counts.shape[1] == self.thisgame.Board().Size()
+
+        for row in range(counts.shape[0]):
+            for col in range(counts.shape[1]):
+                if self.thisgame.Board().IsEmpty(Pt(col + 1, row + 1)):
+                    counts[row, col] = 0
+                else:
+                    counts[row, col] = self.thisgame.Board().NumLiberties(Pt(col + 1, row + 1))
+
+    cpdef stone_age(self, np.in32_t[:, :] age):
+        age[...] = self.__stone_age[...]
+
+    cpdef num_captured_by_play(self, np.in32_t[:, :] num):
         cdef:
             int i, j
 
@@ -95,13 +112,6 @@ cdef class PyGoGame:
 
         for i in range(counts.shape[0]):
             for j in range(counts.shape[1]):
-                if self.thisgame.Board().IsEmpty(Pt(j + 1, i + 1)):
-                    counts[i, j] = 0
-                else:
-                    counts[i, j] = self.thisgame.Board().NumLiberties(Pt(j + 1, i + 1))
-
-    cpdef stone_age(self):
-        return np.array(self.__stone_age).copy()
-
+                
 
 fuego_init()
