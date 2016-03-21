@@ -17,10 +17,14 @@ def load_and_print(filename):
         libs = np.zeros((19, 19), dtype=np.int32)
         game.liberties(libs)
         game.black_white_empty(stones)
-        for row in stones.T[::-1, :]:
+        for row in stones[::-1, :]:
             print(" ".join(stonetochar[c] for c in row))
         print("")
-        print(libs.T[::-1, :])
+        print("libs")
+        print(libs[::-1, :])
+        print("")
+        print("age")
+        print(game.stone_age()[::-1, :])
         print("")
         print("")
         print("")
