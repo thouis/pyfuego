@@ -30,6 +30,8 @@ cdef extern from "fuego.cpp":
         int IsEmpty(SgPoint)
         int IsLegal(SgPoint)
         void Play(SgPoint)
+        int InAtari(SgPoint)
+        int NumStones(SgPoint)
         int NuCapturedStones()
         void Undo()
 
@@ -111,16 +113,18 @@ cdef class PyGoGame:
     cpdef liberties(self, np.int32_t[:, :] counts):
         cdef:
             int row, col
+            SgPoint pt
 
         assert counts.shape[0] == self.board.Size()
         assert counts.shape[1] == self.board.Size()
 
         for row in range(counts.shape[0]):
             for col in range(counts.shape[1]):
-                if self.board.IsEmpty(Pt(col + 1, row + 1)):
+                pt = Pt(col + 1, row + 1)
+                if self.board.IsEmpty(pt):
                     counts[row, col] = 0
                 else:
-                    counts[row, col] = self.board.NumLiberties(Pt(col + 1, row + 1))
+                    counts[row, col] = self.board.NumLiberties(pt)
 
     cpdef stone_age(self, np.int32_t[:, :] age):
         cdef:
@@ -138,23 +142,33 @@ cdef class PyGoGame:
                 else:
                     age[row, col] = self.game.CurrentMoveNumber() - self.__stone_age[row, col] + 1
 
-    cpdef num_captured_by_play(self, np.int32_t[:, :] counts):
+    cpdef captures_libertiers_selfatari_by_play(self,
+                                                np.int32_t[:, :] captures,
+                                                np.int32_t[:, :] liberties,
+                                                np.int32_t[:, :] selfatari):
         cdef:
-            int row, col
+            int row, col, libs
             SgPoint pt
 
-        assert counts.shape[0] == self.board.Size()
-        assert counts.shape[1] == self.board.Size()
+        assert captures.shape[0] == self.board.Size()
+        assert captures.shape[1] == self.board.Size()
+        assert liberties.shape[0] == self.board.Size()
+        assert liberties.shape[1] == self.board.Size()
+        assert selfatari.shape[0] == self.board.Size()
+        assert selfatari.shape[1] == self.board.Size()
 
-        for row in range(counts.shape[0]):
-            for col in range(counts.shape[1]):
-                # default = no capture
-                counts[row, col] = 0
-
+        for row in range(captures.shape[0]):
+            for col in range(captures.shape[1]):
                 pt = Pt(col + 1, row + 1)
                 if self.board.IsLegal(pt):
                     self.board.Play(pt)
-                    counts[row, col] = self.board.NuCapturedStones()
+                    captures[row, col] = self.board.NuCapturedStones()
+                    libs = self.board.NumLiberties(pt)
+                    liberties[row, col] = libs
+                    if libs == 1:
+                        selfatari[row, col] = self.board.NumStones(pt)
+                    else:
+                        selfatari[row, col] = 0
                     self.board.Undo()
 
 fuego_init()

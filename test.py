@@ -17,23 +17,31 @@ def load_and_print(filename):
         libs = np.zeros((19, 19), dtype=np.int32)
         ages = np.zeros((19, 19), dtype=np.int32)
         capture_ct = np.zeros((19, 19), dtype=np.int32)
+        atari_ct = np.zeros((19, 19), dtype=np.int32)
+        liberties_after = np.zeros((19, 19), dtype=np.int32)
 
         game.liberties(libs)
         game.black_white_empty(stones)
         game.stone_age(ages)
-        game.num_captured_by_play(capture_ct)
+        game.captures_libertiers_selfatari_by_play(capture_ct,
+                                                   liberties_after,
+                                                   atari_ct)
 
-        #for row in stones[::-1, :]:
+        # for row in stones[::-1, :]:
         #    print(" ".join(stonetochar[c] for c in row))
         print("")
         print("libs")
         # print(libs[::-1, :])
         print("")
         print("age")
-        print(ages[::-1, :])
+        # print(ages[::-1, :])
         print("")
         print("capture")
-        print(capture_ct[::-1, :])
+        # print(capture_ct[::-1, :])
+        print("self-atari")
+        print(atari_ct[::-1, :])
+        print("liberties after move")
+        print(liberties_after[::-1, :])
         print("")
         print("")
         print("")
