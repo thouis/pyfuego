@@ -11,6 +11,7 @@
 #include "GoGame.h"
 #include "GoNodeUtil.h"
 #include "GoLadder.h"
+#include "GoEyeUtil.h"
 
 #define NEXT SgNode::NEXT
 

@@ -7,7 +7,7 @@ from cython.operator import dereference
 
 from libcpp.string cimport string
 
-
+# External functions, from Fuego and fuego.cpp
 cdef extern from "fuego.cpp":
     cdef cppclass GoGame:
         GoBoard &Board() const
@@ -28,6 +28,7 @@ cdef extern from "fuego.cpp":
         void Init(int, const GoRules &rules)
         int Size()
         GoRules &Rules()
+        SgBlackWhite ToPlay()
         int GetColor(SgPoint)
         int NumLiberties(SgPoint)
         int IsEmpty(SgPoint)
@@ -37,7 +38,6 @@ cdef extern from "fuego.cpp":
         int NumStones(SgPoint)
         int NuCapturedStones()
         void NeighborBlocks(SgPoint, SgBlackWhite, int, SgPoint [])
-        SgBlackWhite ToPlay()
         void Undo()
 
     # constants
@@ -54,11 +54,6 @@ cdef extern from "fuego.cpp":
     int SgOppBW(int)
     int SgIsSpecialMove(int)
 
-
-EMPTY = SG_EMPTY
-BLACK = SG_BLACK
-WHITE = SG_WHITE
-
 cdef extern from "fuego.cpp" namespace "SgPointUtil":
     SgPoint Pt(int col, int row)
     int Row(SgPoint)
@@ -68,6 +63,15 @@ cdef extern from "fuego.cpp" namespace "GoLadderUtil":
     int IsLadderCaptureMove(const GoBoard &, SgPoint, SgPoint)
     int IsLadderEscapeMove(const GoBoard &, SgPoint, SgPoint)
 
+cdef extern from "fuego.cpp" namespace "GoEyeUtil":
+    int IsSinglePointEye2(const GoBoard &, SgPoint, SgBlackWhite)
+
+EMPTY = SG_EMPTY
+BLACK = SG_BLACK
+WHITE = SG_WHITE
+
+
+# Wrapper for an SGF game
 cdef class PyGoGame:
     cdef GoGame *game
     cdef GoBoard *board
@@ -108,6 +112,9 @@ cdef class PyGoGame:
                 col = Col(move)
                 row = Row(move)
                 self.__stone_age[row - 1, col - 1] = self.game.CurrentMoveNumber()
+
+    cpdef current_player(self):
+        return self.board.ToPlay()
 
     cpdef black_white_empty(self, np.int32_t[:, :] bwe):
         ''' sets each value to EMPTY, BLACK, or WHITE '''
@@ -224,4 +231,21 @@ cdef class PyGoGame:
                             break
                         idx += 1
 
+    cpdef sensibleness(self,
+                       np.int32_t[:, :] sensible):
+        '''Moves which don't fill our own eyes.'''
+        cdef:
+            int row, col, idx
+            SgPoint pt
+
+        assert sensible.shape[0] == self.board.Size()
+        assert sensible.shape[1] == self.board.Size()
+
+        for row in range(sensible.shape[0]):
+            for col in range(sensible.shape[1]):
+                pt = Pt(col + 1, row + 1)
+                if self.board.IsLegal(pt):
+                    sensible[row, col] = not IsSinglePointEye2(dereference(self.board), pt, self.board.ToPlay())
+
+# called on module import
 fuego_init()

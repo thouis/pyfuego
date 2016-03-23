@@ -31,6 +31,7 @@ def load_and_print(filename):
                                                   atari_ct)
         game.ladder_capture_escape(ladder_capture,
                                    ladder_escape)
+        game.sensibleness(sensible)
 
         # for row in stones[::-1, :]:
         #    print(" ".join(stonetochar[c] for c in row))
@@ -50,7 +51,9 @@ def load_and_print(filename):
         print("ladder capture")
         # print(ladder_capture[::-1, :])
         print("ladder_escape")
-        print(ladder_escape[::-1, :])
+        #print(ladder_escape[::-1, :])
+        print("sensible")
+        print(sensible[::-1, :] + (stones[::-1, :] != go.EMPTY))
         print("")
         print("")
         print("")
