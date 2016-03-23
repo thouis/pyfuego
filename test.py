@@ -19,13 +19,18 @@ def load_and_print(filename):
         capture_ct = np.zeros((19, 19), dtype=np.int32)
         atari_ct = np.zeros((19, 19), dtype=np.int32)
         liberties_after = np.zeros((19, 19), dtype=np.int32)
+        ladder_capture = np.zeros((19, 19), dtype=np.int32)
+        ladder_escape = np.zeros((19, 19), dtype=np.int32)
+        sensible = np.zeros((19, 19), dtype=np.int32)
 
         game.liberties(libs)
         game.black_white_empty(stones)
         game.stone_age(ages)
-        game.captures_libertiers_selfatari_by_play(capture_ct,
-                                                   liberties_after,
-                                                   atari_ct)
+        game.captures_liberties_selfatari_by_play(capture_ct,
+                                                  liberties_after,
+                                                  atari_ct)
+        game.ladder_capture_escape(ladder_capture,
+                                   ladder_escape)
 
         # for row in stones[::-1, :]:
         #    print(" ".join(stonetochar[c] for c in row))
@@ -39,9 +44,13 @@ def load_and_print(filename):
         print("capture")
         # print(capture_ct[::-1, :])
         print("self-atari")
-        print(atari_ct[::-1, :])
+        # print(atari_ct[::-1, :])
         print("liberties after move")
-        print(liberties_after[::-1, :])
+        # print(liberties_after[::-1, :])
+        print("ladder capture")
+        # print(ladder_capture[::-1, :])
+        print("ladder_escape")
+        print(ladder_escape[::-1, :])
         print("")
         print("")
         print("")
