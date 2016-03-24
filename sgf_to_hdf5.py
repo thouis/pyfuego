@@ -100,7 +100,6 @@ if __name__ == '__main__':
 
         game = go.PyGoGame(filename.strip())
         while not game.at_end():
-            print (idx), game.current_move()
             # grow the output
             outdata.resize(idx + 1, 0)
             outlabels.resize(idx + 1, 0)

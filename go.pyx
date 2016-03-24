@@ -1,4 +1,5 @@
 #cython: language=c++
+#cython: wraparound=False,boundscheck=False,initializedcheck=False
 
 import numpy as np
 cimport numpy as np
@@ -11,7 +12,6 @@ from libcpp.string cimport string
 cdef extern from "fuego.cpp":
     cdef cppclass GoGame:
         GoBoard &Board() const
-        int CurrentMoveNumber()
         int CurrentMove()
         int EndOfGame() const
         int CanGoInDirection(int dir)
@@ -78,12 +78,13 @@ cdef class PyGoGame:
     cdef GoGame *game
     cdef GoBoard *board
     cdef np.int32_t[:, :] __stone_age
+    cpdef int movenumber
 
     def __cinit__(self, char *gamefile):
         # we need our own copy of the board for checking captures, etc.
         self.board = new GoBoard(19)
         self.game = read_game(gamefile, self.board)
-        print self.game.Board().ToPlay(), SG_BLACK, SG_WHITE
+        self.movenumber = 0
 
     def __dealloc__(self):
         del self.game
@@ -117,10 +118,11 @@ cdef class PyGoGame:
             self.board.Play(move)
 
             # update stone age array
+            self.movenumber += 1
             if not SgIsSpecialMove(move):
                 col = Col(move)
                 row = Row(move)
-                self.__stone_age[row - 1, col - 1] = self.game.CurrentMoveNumber()
+                self.__stone_age[row - 1, col - 1] = self.movenumber
 
     cpdef current_player(self):
         return self.board.ToPlay()
@@ -169,7 +171,7 @@ cdef class PyGoGame:
                 if self.board.IsEmpty(pt):
                     age[row, col] = 0
                 else:
-                    age[row, col] = self.game.CurrentMoveNumber() - self.__stone_age[row, col] + 1
+                    age[row, col] = self.movenumber - self.__stone_age[row, col] + 1
 
     cpdef captures_liberties_selfatari_by_play(self,
                                                np.int32_t[:, :] captures,
