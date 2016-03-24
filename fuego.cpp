@@ -21,17 +21,24 @@ void fuego_init()
     GoInit();
 }
 
-GoGame *read_game(char *gamefile)
+static GoBoardUpdater updater;
+
+GoGame *read_game(char *gamefile, GoBoard *board)
 {
     std::ifstream in(gamefile);
     SgGameReader reader(in);
     SgNode *root = reader.ReadGame();
     GoGame *game = new GoGame();
     game->Init(root);
+
     GoRules rules;
     rules.SetKomi(GoNodeUtil::GetKomi(game->CurrentNode()));
     rules.SetHandicap(GoNodeUtil::GetHandicap(game->CurrentNode()));
     game->SetRulesGlobal(rules);
+
+    board->Init(game->Board().Size(), game->Board().Rules());
+    updater.Update(root, *board);
+
     return game;
 }
 

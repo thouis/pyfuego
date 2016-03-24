@@ -48,7 +48,7 @@ cdef extern from "fuego.cpp":
     int NEXT
 
     void fuego_init()
-    GoGame *read_game(char *gamefile)
+    GoGame *read_game(char *gamefile, GoBoard *b)
     void print_board(const GoBoard &)
 
     int SgOppBW(int)
@@ -70,6 +70,8 @@ EMPTY = SG_EMPTY
 BLACK = SG_BLACK
 WHITE = SG_WHITE
 
+cpdef opposite(color):
+   return BLACK if (color == WHITE) else WHITE
 
 # Wrapper for an SGF game
 cdef class PyGoGame:
@@ -78,10 +80,10 @@ cdef class PyGoGame:
     cdef np.int32_t[:, :] __stone_age
 
     def __cinit__(self, char *gamefile):
-        self.game = read_game(gamefile)
-        self.board = new GoBoard(self.game.Board().Size())
         # we need our own copy of the board for checking captures, etc.
-        self.board.Init(self.game.Board().Size(), self.game.Board().Rules())
+        self.board = new GoBoard(19)
+        self.game = read_game(gamefile, self.board)
+        print self.game.Board().ToPlay(), SG_BLACK, SG_WHITE
 
     def __dealloc__(self):
         del self.game
@@ -96,6 +98,13 @@ cdef class PyGoGame:
 
     def at_end(self):
         return self.game.EndOfGame() or (not self.game.CanGoInDirection(NEXT))
+
+    cpdef current_move(self):
+        cdef int move
+        move = self.game.CurrentMove()
+        if SgIsSpecialMove(move):
+            return (-1, -1)
+        return (Row(move) - 1, Col(move) - 1)
 
     cpdef next_move(self):
         cdef int row, col, move
