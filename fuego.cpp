@@ -39,6 +39,15 @@ GoGame *read_game(char *gamefile, GoBoard *board)
     board->Init(game->Board().Size(), game->Board().Rules());
     updater.Update(root, *board);
 
+    // I'm not sure how to handle white moving first after handicap.
+    // For now, just set the player to white if there are handicap on
+    // the board.
+    if ((GoNodeUtil::GetHandicap(root) >= 2) ||
+        (board->TotalNumStones(SG_BLACK) > 0)) {
+        game->SetToPlay(SG_WHITE);
+        board->SetToPlay(SG_WHITE);
+    }
+
     return game;
 }
 
