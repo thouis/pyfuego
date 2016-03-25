@@ -9,21 +9,7 @@ import sys
 NUM_FEATURES = 48
 NUM_LABELS = 2  # row, col
 
-h5 = h5py.File(sys.argv[1])
-
-outdata = h5.require_dataset('X',
-                             shape=(1, NUM_FEATURES, 19, 19),
-                             dtype=np.uint8,
-                             chunks=(10, NUM_FEATURES, 19, 19),
-                             maxshape=(None, NUM_FEATURES, 19, 19),
-                             compression="lzf")
-outlabels = h5.require_dataset('y',
-                               shape=(1, NUM_LABELS),
-                               dtype=np.uint8,
-                               chunks=(1000, NUM_LABELS),
-                               maxshape=(None, NUM_LABELS))
-
-# Preallocate
+# Preallocate - saves time in calc_features
 stones = np.zeros((19, 19), dtype=np.int32)
 libs = np.zeros((19, 19), dtype=np.int32)
 ages = np.zeros((19, 19), dtype=np.int32)
@@ -95,11 +81,30 @@ def calc_features(game):
 
 if __name__ == '__main__':
     idx = 0
+    h5 = h5py.File(sys.argv[1])
+
+    outdata = h5.require_dataset('X',
+                                 shape=(1, NUM_FEATURES, 19, 19),
+                                 dtype=np.uint8,
+                                 chunks=(10, NUM_FEATURES, 19, 19),
+                                 maxshape=(None, NUM_FEATURES, 19, 19),
+                                 compression="lzf")
+    outlabels = h5.require_dataset('y',
+                                   shape=(1, NUM_LABELS),
+                                   dtype=np.uint8,
+                                   chunks=(1000, NUM_LABELS),
+                                   maxshape=(None, NUM_LABELS))
+
+    game_indices = []  # for storing where games' moves start
+    idx = 0
     for filename in sys.stdin:
-        print("Processing {}".format(filename.strip()))
+        if '2008-06-17-26' in filename:
+            continue
+        game_indices.append((filename.strip(), idx))
 
         game = go.PyGoGame(filename.strip())
         while not game.at_end():
+            print game.current_player(), game.current_move()
             # grow the output
             outdata.resize(idx + 1, 0)
             outlabels.resize(idx + 1, 0)
@@ -108,3 +113,8 @@ if __name__ == '__main__':
             game.next_move()
             idx = idx + 1
         print(idx)
+
+    names = h5.require_dataset('gamefiles', (len(game_indices),), dtype=h5py.special_dtype(vlen=bytes))
+    offsets = h5.require_dataset('gameoffsets', (len(game_indices),), dtype=int)
+    names[...] = [v[0] for v in game_indices]
+    offsets[...] = [v[1] for v in game_indices]
