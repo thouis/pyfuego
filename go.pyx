@@ -45,7 +45,8 @@ cdef extern from "fuego.cpp":
     int SG_BLACK
     int SG_WHITE
     int SG_ENDPOINT
-    int NEXT
+    int SG_PASS
+    int NEXT, PREV
 
     void fuego_init()
     GoGame *read_game(char *gamefile, GoBoard *b)
@@ -101,8 +102,11 @@ cdef class PyGoGame:
         return self.game.EndOfGame() or (not self.game.CanGoInDirection(NEXT))
 
     cpdef current_move(self):
-        cdef int move
-        move = self.game.CurrentMove()
+        cdef int move = SG_PASS
+        if self.game.CanGoInDirection(NEXT):
+            self.game.GoInDirection(NEXT)
+            move = self.game.CurrentMove()
+            self.game.GoInDirection(PREV)
         if SgIsSpecialMove(move):
             return (-1, -1)
         return (Row(move) - 1, Col(move) - 1)

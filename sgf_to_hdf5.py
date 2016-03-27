@@ -91,7 +91,7 @@ if __name__ == '__main__':
                                  compression="lzf")
     outlabels = h5.require_dataset('y',
                                    shape=(1, NUM_LABELS),
-                                   dtype=np.uint8,
+                                   dtype=np.int8,
                                    chunks=(1000, NUM_LABELS),
                                    maxshape=(None, NUM_LABELS))
 
@@ -104,7 +104,6 @@ if __name__ == '__main__':
 
         game = go.PyGoGame(filename.strip())
         while not game.at_end():
-            print game.current_player(), game.current_move()
             # grow the output
             outdata.resize(idx + 1, 0)
             outlabels.resize(idx + 1, 0)

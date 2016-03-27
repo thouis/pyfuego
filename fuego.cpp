@@ -14,6 +14,7 @@
 #include "GoEyeUtil.h"
 
 #define NEXT SgNode::NEXT
+#define PREV SgNode::PREVIOUS
 
 void fuego_init()
 {
