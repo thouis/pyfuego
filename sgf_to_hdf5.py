@@ -86,29 +86,51 @@ if __name__ == '__main__':
     outdata = h5.require_dataset('X',
                                  shape=(1, NUM_FEATURES, 19, 19),
                                  dtype=np.uint8,
-                                 chunks=(10, NUM_FEATURES, 19, 19),
+                                 chunks=(16, NUM_FEATURES, 19, 19),
                                  maxshape=(None, NUM_FEATURES, 19, 19),
-                                 compression="lzf")
+                                 compression="gzip", shuffle=True)
     outlabels = h5.require_dataset('y',
                                    shape=(1, NUM_LABELS),
                                    dtype=np.int8,
                                    chunks=(1000, NUM_LABELS),
                                    maxshape=(None, NUM_LABELS))
+    ranks = h5.require_dataset('ranks',
+                               shape=(1, 1),
+                               dtype=np.int32,
+                               chunks=(1000, 1),
+                               maxshape=(None, 1))
 
     game_indices = []  # for storing where games' moves start
     idx = 0
+
+    bad_games = ("2008-06-17-26 1150C 1934-01-28a 1934-08-09a 1936-03-29a 1937-03-23a"
+                 " 1730WXTYP11 1730WXTYP10 1700JQXG224"
+                 " OGS_game_179267 OGS_game_244436").split(' ')
     for filename in sys.stdin:
-        if '2008-06-17-26' in filename:
+        if any(bad in filename for bad in bad_games):
             continue
+
+        print(filename.strip())
+        game = go.PyGoGame(filename.strip())
+        rank_black, rank_white = game.get_ranks()
+        if not rank_black or not rank_white:
+            print("no ranks")
+            continue
+        rank_black = go.numeric_rank(rank_black)
+        rank_white = go.numeric_rank(rank_white)
+
         game_indices.append((filename.strip(), idx))
 
-        game = go.PyGoGame(filename.strip())
         while not game.at_end():
             # grow the output
             outdata.resize(idx + 1, 0)
             outlabels.resize(idx + 1, 0)
+            ranks.resize(idx + 1, 0)
             outdata[idx, ...] = calc_features(game)
-            outlabels[idx, ...] = game.current_move()
+            outlabels[idx, :] = game.current_move()
+            ranks[idx, 0] = rank_black if (game.current_player() == go.BLACK) else rank_white
+            # game.print_board()
+            # print(game.current_move())
             game.next_move()
             idx = idx + 1
         print(idx)

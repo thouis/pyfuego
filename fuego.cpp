@@ -5,6 +5,7 @@
 #include "SgSystem.h"
 #include "SgGameReader.h"
 #include "SgNode.h"
+#include "SgProp.h"
 #include "SgPoint.h"
 
 #include "GoInit.h"
@@ -32,6 +33,15 @@ GoGame *read_game(char *gamefile, GoBoard *board)
     GoGame *game = new GoGame();
     game->Init(root);
 
+    if (0) {
+        for (SgPropListIterator it(root->Props()); it; ++it) {
+            SgProp* prop = *it;
+            std::vector<std::string> values;
+            prop->ToString(values, 19, SG_PROPPOINTFMT_GO, 0);
+            std::cout << prop->Label() << std::endl;
+        }
+    }
+
     GoRules rules;
     rules.SetKomi(GoNodeUtil::GetKomi(game->CurrentNode()));
     rules.SetHandicap(GoNodeUtil::GetHandicap(game->CurrentNode()));
@@ -45,6 +55,7 @@ GoGame *read_game(char *gamefile, GoBoard *board)
     // the board.
     if ((GoNodeUtil::GetHandicap(root) >= 2) ||
         (board->TotalNumStones(SG_BLACK) > 0)) {
+        std::cout << "Switching to white." << std::endl;
         game->SetToPlay(SG_WHITE);
         board->SetToPlay(SG_WHITE);
     }

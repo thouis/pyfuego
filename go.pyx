@@ -3,6 +3,7 @@
 
 import numpy as np
 cimport numpy as np
+cimport cython
 
 from cython.operator import dereference
 
@@ -16,6 +17,11 @@ cdef extern from "fuego.cpp":
         int EndOfGame() const
         int CanGoInDirection(int dir)
         void GoInDirection(int dir)
+        const SgNode &Root()
+
+    cdef cppclass SgNode:
+        int HasProp(int)
+        int GetStringProp(int, string *)
 
     ctypedef int SgPoint
     ctypedef int SgBlackWhite
@@ -47,6 +53,7 @@ cdef extern from "fuego.cpp":
     int SG_ENDPOINT
     int SG_PASS
     int NEXT, PREV
+    int SG_PROP_RANK_BLACK, SG_PROP_RANK_WHITE
 
     void fuego_init()
     GoGame *read_game(char *gamefile, GoBoard *b)
@@ -67,9 +74,17 @@ cdef extern from "fuego.cpp" namespace "GoLadderUtil":
 cdef extern from "fuego.cpp" namespace "GoEyeUtil":
     int IsSinglePointEye2(const GoBoard &, SgPoint, SgBlackWhite)
 
+# called on module import
+if SG_PROP_RANK_BLACK == 0:
+    fuego_init()
+
+# these have to come after the initp
 EMPTY = SG_EMPTY
 BLACK = SG_BLACK
 WHITE = SG_WHITE
+BLACK_RANK = SG_PROP_RANK_BLACK
+WHITE_RANK = SG_PROP_RANK_WHITE
+
 
 cpdef opposite(color):
    return BLACK if (color == WHITE) else WHITE
@@ -80,12 +95,14 @@ cdef class PyGoGame:
     cdef GoBoard *board
     cdef np.int32_t[:, :] __stone_age
     cpdef int movenumber
+    cpdef int invalid
 
     def __cinit__(self, char *gamefile):
         # we need our own copy of the board for checking captures, etc.
         self.board = new GoBoard(19)
         self.game = read_game(gamefile, self.board)
         self.movenumber = 0
+        self.invalid = 0
 
     def __dealloc__(self):
         del self.game
@@ -99,7 +116,23 @@ cdef class PyGoGame:
        print_board(dereference(self.board))
 
     def at_end(self):
-        return self.game.EndOfGame() or (not self.game.CanGoInDirection(NEXT))
+        return (self.invalid
+                or self.game.EndOfGame()
+                or (not self.game.CanGoInDirection(NEXT)))
+
+    cpdef get_ranks(self):
+        cdef:
+           string br, wr
+           bytes black_rank, white_rank
+
+        black_rank = white_rank = "".encode()
+        if self.game.Root().HasProp(BLACK_RANK):
+            self.game.Root().GetStringProp(BLACK_RANK, &br)
+            black_rank = br
+        if self.game.Root().HasProp(WHITE_RANK):
+            self.game.Root().GetStringProp(WHITE_RANK, &wr)
+            white_rank = wr
+        return black_rank, white_rank
 
     cpdef current_move(self):
         cdef int move = SG_PASS
@@ -117,6 +150,10 @@ cdef class PyGoGame:
             self.game.GoInDirection(NEXT)
 
             move = self.game.CurrentMove()
+            # deal with bad SGFs by setting an invalid flag
+            if not self.board.IsLegal(move):
+                self.invalid = 1
+                return
 
             # update our copy of the board
             self.board.Play(move)
@@ -262,5 +299,16 @@ cdef class PyGoGame:
                 if self.board.IsLegal(pt):
                     sensible[row, col] = not IsSinglePointEye2(dereference(self.board), pt, self.board.ToPlay())
 
-# called on module import
-fuego_init()
+@cython.wraparound(True)
+def numeric_rank(s):
+    if s[-1] == 'k':
+        # 21k == 0
+        return 100 * (21 - int(s[:-1]))
+    elif s[-1] == 'd':
+        # 1d == 2100
+        return 2000 + 100 * int(s[:-1])
+    elif s[-1] == 'p':
+        # 1p = 2700, 30 points between
+        return 2700 + 30 * int(s[:-1])
+    else:
+        raise ValueError('Not a rank')
