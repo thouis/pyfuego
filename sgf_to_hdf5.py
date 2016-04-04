@@ -41,9 +41,9 @@ def calc_features(game):
     features[3, ...] = 1
 
     # 4-11 - Turns since
-    for idx in range(0, 8):
-        # XXX - should the last plane be all "old" stones?
+    for idx in range(0, 7):
         features[idx + 4] = (ages == idx + 1)
+    features[11] = (ages >= 8)
 
     # 12-19 - Liberties of groups
     for idx in range(0, 7):
@@ -56,9 +56,10 @@ def calc_features(game):
     features[27] = (capture_ct >= 7)
 
     # 28-35 - Self-atari size
+    # 0th plane == 1 stone in atari
     for idx in range(0, 7):
-        features[idx + 28] = (atari_ct == idx)
-    features[35] = (atari_ct >= 7)
+        features[idx + 28] = (atari_ct == idx + 1)
+    features[35] = (atari_ct >= 8)
 
     # 36-43 - Liberties after move
     for idx in range(0, 7):
