@@ -112,7 +112,7 @@ if __name__ == '__main__':
             continue
 
         print(filename.strip())
-        game = go.PyGoGame(filename.strip())
+        game = go.PyGoGame(filename.strip().encode('UTF-8'))
         rank_black, rank_white = game.get_ranks()
         if not rank_black or not rank_white:
             print("no ranks")

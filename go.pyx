@@ -132,7 +132,7 @@ cdef class PyGoGame:
         if self.game.Root().HasProp(WHITE_RANK):
             self.game.Root().GetStringProp(WHITE_RANK, &wr)
             white_rank = wr
-        return black_rank, white_rank
+        return black_rank.decode('ascii'), white_rank.decode('ascii')
 
     cpdef current_move(self):
         cdef int move = SG_PASS
@@ -311,4 +311,4 @@ def numeric_rank(s):
         # 1p = 2700, 30 points between
         return 2700 + 30 * int(s[:-1])
     else:
-        raise ValueError('Not a rank')
+        raise ValueError('Not a rank: {}'.format(s))
