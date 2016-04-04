@@ -243,6 +243,8 @@ cdef class PyGoGame:
                     else:
                         selfatari[row, col] = 0
                     self.board.Undo()
+                else:
+                    captures[row, col] = liberties[row, col] = selfatari[row, col] = 0
 
     cpdef ladder_capture_escape(self,
                                 np.int32_t[:, :] ladder_capture,
