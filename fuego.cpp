@@ -55,7 +55,6 @@ GoGame *read_game(char *gamefile, GoBoard *board)
     // the board.
     if ((GoNodeUtil::GetHandicap(root) >= 2) ||
         (board->TotalNumStones(SG_BLACK) > 0)) {
-        std::cout << "Switching to white." << std::endl;
         game->SetToPlay(SG_WHITE);
         board->SetToPlay(SG_WHITE);
     }

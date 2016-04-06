@@ -300,17 +300,3 @@ cdef class PyGoGame:
                 pt = Pt(col + 1, row + 1)
                 if self.board.IsLegal(pt):
                     sensible[row, col] = not IsSinglePointEye2(dereference(self.board), pt, self.board.ToPlay())
-
-@cython.wraparound(True)
-def numeric_rank(s):
-    if s[-1] == 'k':
-        # 21k == 0
-        return 100 * (21 - int(s[:-1]))
-    elif s[-1] == 'd':
-        # 1d == 2100
-        return 2000 + 100 * int(s[:-1])
-    elif s[-1] == 'p':
-        # 1p = 2700, 30 points between
-        return 2700 + 30 * int(s[:-1])
-    else:
-        raise ValueError('Not a rank: {}'.format(s))
