@@ -19,9 +19,10 @@ liberties_after = np.zeros((19, 19), dtype=np.int32)
 ladder_capture = np.zeros((19, 19), dtype=np.int32)
 ladder_escape = np.zeros((19, 19), dtype=np.int32)
 sensible = np.zeros((19, 19), dtype=np.int32)
+legal = np.zeros((19, 19), dtype=np.int32)
 features = np.zeros((NUM_FEATURES, 19, 19), dtype=np.uint8)
 
-def calc_features(game):
+def calc_features(game, alphago_compatible=True):
     game.liberties(libs)
     game.black_white_empty(stones)
     game.stone_age(ages)
@@ -31,52 +32,67 @@ def calc_features(game):
     game.ladder_capture_escape(ladder_capture,
                                ladder_escape)
     game.sensibleness(sensible)
+    game.legal(legal)
+
+    offset = range(NUM_FEATURES + 1).__iter__()
+
+    def next_feature(val):
+        features[offset.next(), ...] = val
 
     # 0,1,2 - my stones, their stones, empty
-    features[0, ...] = (stones == game.current_player())
-    features[1, ...] = (stones == go.opposite(game.current_player()))
-    features[2, ...] = (stones == go.EMPTY)
+    next_feature(stones == game.current_player())
+    next_feature(stones == go.opposite(game.current_player()))
+    next_feature(stones == go.EMPTY)
 
     # 3 - all ones
-    features[3, ...] = 1
+    next_feature(1)
 
-    # 4-11 - Turns since
-    for idx in range(0, 7):
-        features[idx + 4] = (ages == idx + 1)
-    features[11] = (ages >= 8)
+    if alphago_compatible:
+        # 4-11 - Turns since
+        for idx in range(0, 7):
+            next_feature(ages == idx + 1)
+        next_feature(ages >= 8)
 
     # 12-19 - Liberties of groups
     for idx in range(0, 7):
-        features[idx + 12] = (libs == idx + 1)
-    features[19] = (libs >= 8)
+        next_feature(libs == idx + 1)
+    next_feature(libs >= 8)
 
     # 20-27 - Capture size
     for idx in range(0, 7):
-        features[idx + 20] = (capture_ct == idx)
-    features[27] = (capture_ct >= 7)
+        next_feature(capture_ct == idx)
+    next_feature(capture_ct >= 7)
 
     # 28-35 - Self-atari size
     # 0th plane == 1 stone in atari
     for idx in range(0, 7):
-        features[idx + 28] = (atari_ct == idx + 1)
-    features[35] = (atari_ct >= 8)
+        next_feature(atari_ct == idx + 1)
+    next_feature(atari_ct >= 8)
 
     # 36-43 - Liberties after move
     for idx in range(0, 7):
-        features[idx + 36] = (liberties_after == idx + 1)
-    features[43] = (liberties_after >= 8)
+        next_feature(liberties_after == idx + 1)
+    next_feature(liberties_after >= 8)
 
     # 44 - Ladder capture move
-    features[44] = ladder_capture
+    next_feature(ladder_capture)
 
     # 45 - Ladder escape move
-    features[45] = ladder_escape
+    next_feature(ladder_escape)
 
     # 46 - Senible - legal and does not fill eyes
-    features[46] = sensible
+    next_feature(sensible)
 
-    # 47 - all zeros
-    features[47] = 0
+    if alphago_compatible:
+        # 47 - all zeros
+        next_feature(0)
+    else:
+        next_feature(legal)
+
+    if alphago_compatible:
+        assert offset.next() == NUM_FEATURES
+    else:
+        assert offset.next() == NUM_FEATURES - 8
 
     return features
 
@@ -106,11 +122,12 @@ if __name__ == '__main__':
     idx = 0
     h5 = h5py.File(sys.argv[1], 'w')
 
+    num_features = NUM_FEATURES - 8
     outdata = h5.require_dataset('X',
-                                 shape=(1, NUM_FEATURES, 19, 19),
+                                 shape=(1, num_features, 19, 19),
                                  dtype=np.uint8,
-                                 chunks=(16, NUM_FEATURES, 19, 19),
-                                 maxshape=(None, NUM_FEATURES, 19, 19),
+                                 chunks=(16, num_features, 19, 19),
+                                 maxshape=(None, num_features, 19, 19),
                                  compression="gzip", shuffle=True)
     outlabels = h5.require_dataset('y',
                                    shape=(1, NUM_LABELS),
@@ -162,7 +179,7 @@ if __name__ == '__main__':
             outdata.resize(idx + 1, 0)
             outlabels.resize(idx + 1, 0)
             ranks.resize(idx + 1, 0)
-            outdata[idx, ...] = calc_features(game)
+            outdata[idx, ...] = calc_features(game, alphago_compatible=False)
             outlabels[idx, :] = game.current_move()
             ranks[idx, 0] = rank_black if (game.current_player() == go.BLACK) else rank_white
             # game.print_board()

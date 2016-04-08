@@ -300,3 +300,20 @@ cdef class PyGoGame:
                 pt = Pt(col + 1, row + 1)
                 if self.board.IsLegal(pt):
                     sensible[row, col] = not IsSinglePointEye2(dereference(self.board), pt, self.board.ToPlay())
+                else:
+                    sensible[row, col] = 0
+
+    cpdef legal(self,
+                np.int32_t[:, :] legal):
+        '''Moves which are legal.'''
+        cdef:
+            int row, col, idx
+            SgPoint pt
+
+        assert legal.shape[0] == self.board.Size()
+        assert legal.shape[1] == self.board.Size()
+
+        for row in range(legal.shape[0]):
+            for col in range(legal.shape[1]):
+                pt = Pt(col + 1, row + 1)
+                legal[row, col] = 1 if self.board.IsLegal(pt) else 0
