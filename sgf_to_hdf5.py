@@ -89,12 +89,7 @@ def calc_features(game, alphago_compatible=True):
     else:
         next_feature(legal)
 
-    if alphago_compatible:
-        assert offset.next() == NUM_FEATURES
-    else:
-        assert offset.next() == NUM_FEATURES - 8
-
-    return features
+    return features[:offset.next(), ...]
 
 def numeric_rank(s, default=None):
     if s.endswith(','):
@@ -157,11 +152,7 @@ if __name__ == '__main__':
         rank_black = rank_black.split(' ')[0]
         rank_white = rank_white.split(' ')[0]
         if not rank_black or not rank_white:
-            if 'GoGoD' in filename:
-                rank_black = rank_white = '5p'  # old games often lack ranks
-            else:
-                num_rejected += 1
-                continue
+            rank_black = rank_white = '5p'  # old games often lack ranks
         try:
             rank_black = numeric_rank(rank_black)
             rank_white = numeric_rank(rank_white)
