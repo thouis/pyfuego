@@ -17,6 +17,7 @@ cdef extern from "fuego.cpp":
         int EndOfGame() const
         int CanGoInDirection(int dir)
         void GoInDirection(int dir)
+        void GoToNode(SgNode *)
         const SgNode &Root()
 
     cdef cppclass SgNode:
@@ -32,19 +33,19 @@ cdef extern from "fuego.cpp":
     cdef cppclass GoBoard:
         GoBoard(int)
         void Init(int, const GoRules &rules)
-        int Size()
+        int Size() nogil
         GoRules &Rules()
-        SgBlackWhite ToPlay()
-        int GetColor(SgPoint)
-        int NumLiberties(SgPoint)
-        int IsEmpty(SgPoint)
-        int IsLegal(SgPoint)
-        void Play(SgPoint)
-        int InAtari(SgPoint)
-        int NumStones(SgPoint)
-        int NuCapturedStones()
-        void NeighborBlocks(SgPoint, SgBlackWhite, int, SgPoint [])
-        void Undo()
+        SgBlackWhite ToPlay() nogil
+        int GetColor(SgPoint) nogil
+        int NumLiberties(SgPoint) nogil
+        int IsEmpty(SgPoint) nogil
+        int IsLegal(SgPoint) nogil
+        void Play(SgPoint) nogil
+        int InAtari(SgPoint) nogil
+        int NumStones(SgPoint) nogil
+        int NuCapturedStones() nogil
+        void NeighborBlocks(SgPoint, SgBlackWhite, int, SgPoint []) nogil
+        void Undo() nogil
 
     # constants
     int SG_EMPTY
@@ -59,20 +60,20 @@ cdef extern from "fuego.cpp":
     GoGame *read_game(char *gamefile, GoBoard *b)
     void print_board(const GoBoard &)
 
-    int SgOppBW(int)
+    int SgOppBW(int) nogil
     int SgIsSpecialMove(int)
 
 cdef extern from "fuego.cpp" namespace "SgPointUtil":
-    SgPoint Pt(int col, int row)
-    int Row(SgPoint)
-    int Col(SgPoint)
+    SgPoint Pt(int col, int row) nogil
+    int Row(SgPoint) nogil
+    int Col(SgPoint) nogil
 
 cdef extern from "fuego.cpp" namespace "GoLadderUtil":
-    int IsLadderCaptureMove(const GoBoard &, SgPoint, SgPoint)
-    int IsLadderEscapeMove(const GoBoard &, SgPoint, SgPoint)
+    int IsLadderCaptureMove(const GoBoard &, SgPoint, SgPoint) nogil
+    int IsLadderEscapeMove(const GoBoard &, SgPoint, SgPoint) nogil
 
 cdef extern from "fuego.cpp" namespace "GoEyeUtil":
-    int IsSinglePointEye2(const GoBoard &, SgPoint, SgBlackWhite)
+    int IsSinglePointEye2(const GoBoard &, SgPoint, SgBlackWhite) nogil
 
 # called on module import
 if SG_PROP_RANK_BLACK == 0:
@@ -94,6 +95,7 @@ cdef class PyGoGame:
     cdef GoGame *game
     cdef GoBoard *board
     cdef np.int32_t[:, :] __stone_age
+    cdef int game_len
     cpdef int movenumber
     cpdef int invalid
 
@@ -111,6 +113,11 @@ cdef class PyGoGame:
     def __init__(self, gamefile):
         # set up memory for stone age
         self.__stone_age = np.zeros((self.game.Board().Size(), self.game.Board().Size()), dtype=np.int32)
+        self.game_len = 0
+        while self.game.CanGoInDirection(NEXT):
+            self.game.GoInDirection(NEXT)
+            self.game_len += 1
+        self.game.GoToNode(& self.game.Root())
 
     def print_board(self):
        print_board(dereference(self.board))
@@ -133,6 +140,9 @@ cdef class PyGoGame:
             self.game.Root().GetStringProp(WHITE_RANK, &wr)
             white_rank = wr
         return black_rank.decode('ascii'), white_rank.decode('ascii')
+
+    cpdef gamelen(self):
+        return self.game_len
 
     cpdef current_move(self):
         cdef int move = SG_PASS
@@ -171,14 +181,14 @@ cdef class PyGoGame:
     cpdef black_white_empty(self, np.int32_t[:, :] bwe):
         ''' sets each value to EMPTY, BLACK, or WHITE '''
         cdef:
-            int row, col, c
+            int row, col
+            SgPoint p
 
-        assert bwe.shape[0] == self.board.Size()
-        assert bwe.shape[1] == self.board.Size()
-
-        for row in range(bwe.shape[0]):
-            for col in range(bwe.shape[1]):
-                bwe[row, col] = self.board.GetColor(Pt(col + 1, row + 1))
+        with nogil:
+            for row in range(bwe.shape[0]):
+                for col in range(bwe.shape[1]):
+                    p = Pt(col + 1, row + 1)
+                    bwe[row, col] = self.board.GetColor(p)
 
     cpdef liberties(self, np.int32_t[:, :] counts):
         '''number of liberties of each group on the board'''
@@ -186,16 +196,14 @@ cdef class PyGoGame:
             int row, col
             SgPoint pt
 
-        assert counts.shape[0] == self.board.Size()
-        assert counts.shape[1] == self.board.Size()
-
-        for row in range(counts.shape[0]):
-            for col in range(counts.shape[1]):
-                pt = Pt(col + 1, row + 1)
-                if self.board.IsEmpty(pt):
-                    counts[row, col] = 0
-                else:
-                    counts[row, col] = self.board.NumLiberties(pt)
+        with nogil:
+            for row in range(counts.shape[0]):
+                for col in range(counts.shape[1]):
+                    pt = Pt(col + 1, row + 1)
+                    if self.board.IsEmpty(pt):
+                        counts[row, col] = 0
+                    else:
+                        counts[row, col] = self.board.NumLiberties(pt)
 
     cpdef stone_age(self, np.int32_t[:, :] age):
         '''How long ago stones were played'''
@@ -203,16 +211,14 @@ cdef class PyGoGame:
             int row, col
             SgPoint pt
 
-        assert age.shape[0] == self.board.Size()
-        assert age.shape[1] == self.board.Size()
-
-        for row in range(age.shape[0]):
-            for col in range(age.shape[1]):
-                pt = Pt(col + 1, row + 1)
-                if self.board.IsEmpty(pt):
-                    age[row, col] = 0
-                else:
-                    age[row, col] = self.movenumber - self.__stone_age[row, col] + 1
+        with nogil:
+            for row in range(age.shape[0]):
+                for col in range(age.shape[1]):
+                    pt = Pt(col + 1, row + 1)
+                    if self.board.IsEmpty(pt):
+                        age[row, col] = 0
+                    else:
+                        age[row, col] = self.movenumber - self.__stone_age[row, col] + 1
 
     cpdef captures_liberties_selfatari_by_play(self,
                                                np.int32_t[:, :] captures,
@@ -223,28 +229,22 @@ cdef class PyGoGame:
             int row, col, libs
             SgPoint pt
 
-        assert captures.shape[0] == self.board.Size()
-        assert captures.shape[1] == self.board.Size()
-        assert liberties.shape[0] == self.board.Size()
-        assert liberties.shape[1] == self.board.Size()
-        assert selfatari.shape[0] == self.board.Size()
-        assert selfatari.shape[1] == self.board.Size()
-
-        for row in range(captures.shape[0]):
-            for col in range(captures.shape[1]):
-                pt = Pt(col + 1, row + 1)
-                if self.board.IsLegal(pt):
-                    self.board.Play(pt)
-                    captures[row, col] = self.board.NuCapturedStones()
-                    libs = self.board.NumLiberties(pt)
-                    liberties[row, col] = libs
-                    if libs == 1:
-                        selfatari[row, col] = self.board.NumStones(pt)
+        with nogil:
+            for row in range(captures.shape[0]):
+                for col in range(captures.shape[1]):
+                    pt = Pt(col + 1, row + 1)
+                    if self.board.IsLegal(pt):
+                        self.board.Play(pt)
+                        captures[row, col] = self.board.NuCapturedStones()
+                        libs = self.board.NumLiberties(pt)
+                        liberties[row, col] = libs
+                        if libs == 1:
+                            selfatari[row, col] = self.board.NumStones(pt)
+                        else:
+                            selfatari[row, col] = 0
+                        self.board.Undo()
                     else:
-                        selfatari[row, col] = 0
-                    self.board.Undo()
-                else:
-                    captures[row, col] = liberties[row, col] = selfatari[row, col] = 0
+                        captures[row, col] = liberties[row, col] = selfatari[row, col] = 0
 
     cpdef ladder_capture_escape(self,
                                 np.int32_t[:, :] ladder_capture,
@@ -255,35 +255,31 @@ cdef class PyGoGame:
             SgPoint pt
             SgPoint neighbors[5]
 
-        assert ladder_capture.shape[0] == self.board.Size()
-        assert ladder_capture.shape[1] == self.board.Size()
-        assert ladder_escape.shape[0] == self.board.Size()
-        assert ladder_escape.shape[1] == self.board.Size()
+        with nogil:
+            for row in range(ladder_capture.shape[0]):
+                for col in range(ladder_capture.shape[1]):
+                    ladder_escape[row, col] = 0
+                    ladder_capture[row, col] = 0
 
-        for row in range(ladder_capture.shape[0]):
-            for col in range(ladder_capture.shape[1]):
-                ladder_escape[row, col] = 0
-                ladder_capture[row, col] = 0
+                    pt = Pt(col + 1, row + 1)
+                    if self.board.IsLegal(pt):
+                        # check for prey stones of the opposite color, with 2 or fewer liberties
+                        self.board.NeighborBlocks(pt, SgOppBW(self.board.ToPlay()), 2, neighbors)
+                        idx = 0
+                        while neighbors[idx] != SG_ENDPOINT:
+                            if (self.board.NumLiberties(neighbors[idx]) == 2) and IsLadderCaptureMove(dereference(self.board), neighbors[idx], pt):
+                                ladder_capture[row, col] = 1
+                                break
+                            idx += 1
 
-                pt = Pt(col + 1, row + 1)
-                if self.board.IsLegal(pt):
-                    # check for prey stones of the opposite color, with 2 or fewer liberties
-                    self.board.NeighborBlocks(pt, SgOppBW(self.board.ToPlay()), 2, neighbors)
-                    idx = 0
-                    while neighbors[idx] != SG_ENDPOINT:
-                        if (self.board.NumLiberties(neighbors[idx]) == 2) and IsLadderCaptureMove(dereference(self.board), neighbors[idx], pt):
-                            ladder_capture[row, col] = 1
-                            break
-                        idx += 1
-
-                    # check for ladder escapes
-                    self.board.NeighborBlocks(pt, self.board.ToPlay(), 1, neighbors)
-                    idx = 0
-                    while neighbors[idx] != SG_ENDPOINT:
-                        if IsLadderEscapeMove(dereference(self.board), neighbors[idx], pt):
-                            ladder_escape[row, col] = 1
-                            break
-                        idx += 1
+                        # check for ladder escapes
+                        self.board.NeighborBlocks(pt, self.board.ToPlay(), 1, neighbors)
+                        idx = 0
+                        while neighbors[idx] != SG_ENDPOINT:
+                            if IsLadderEscapeMove(dereference(self.board), neighbors[idx], pt):
+                                ladder_escape[row, col] = 1
+                                break
+                            idx += 1
 
     cpdef sensibleness(self,
                        np.int32_t[:, :] sensible):
@@ -292,28 +288,24 @@ cdef class PyGoGame:
             int row, col, idx
             SgPoint pt
 
-        assert sensible.shape[0] == self.board.Size()
-        assert sensible.shape[1] == self.board.Size()
+        with nogil:
+            for row in range(sensible.shape[0]):
+                for col in range(sensible.shape[1]):
+                    pt = Pt(col + 1, row + 1)
+                    if self.board.IsLegal(pt):
+                        sensible[row, col] = not IsSinglePointEye2(dereference(self.board), pt, self.board.ToPlay())
+                    else:
+                        sensible[row, col] = 0
 
-        for row in range(sensible.shape[0]):
-            for col in range(sensible.shape[1]):
-                pt = Pt(col + 1, row + 1)
-                if self.board.IsLegal(pt):
-                    sensible[row, col] = not IsSinglePointEye2(dereference(self.board), pt, self.board.ToPlay())
-                else:
-                    sensible[row, col] = 0
-
-    cpdef legal(self,
-                np.int32_t[:, :] legal):
+    cpdef legal(self, np.int32_t[:, :] legal):
+                     
         '''Moves which are legal.'''
         cdef:
             int row, col, idx
             SgPoint pt
 
-        assert legal.shape[0] == self.board.Size()
-        assert legal.shape[1] == self.board.Size()
-
-        for row in range(legal.shape[0]):
-            for col in range(legal.shape[1]):
-                pt = Pt(col + 1, row + 1)
-                legal[row, col] = 1 if self.board.IsLegal(pt) else 0
+        with nogil:
+            for row in range(legal.shape[0]):
+                for col in range(legal.shape[1]):
+                    pt = Pt(col + 1, row + 1)
+                    legal[row, col] = 1 if self.board.IsLegal(pt) else 0
