@@ -4,6 +4,7 @@
 #include "SgInit.h"
 #include "SgSystem.h"
 #include "SgGameReader.h"
+#include "SgGameWriter.h"
 #include "SgNode.h"
 #include "SgProp.h"
 #include "SgPoint.h"
@@ -67,3 +68,8 @@ void print_board(const GoBoard &board)
     GoWriteBoard(std::cout, board);
 }
 
+void print_game(const GoGame &game)
+{
+    SgGameWriter wr(std::cout);
+    wr.WriteGame(game.Root(), true, 0, 0, 15);
+}

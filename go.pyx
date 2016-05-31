@@ -19,10 +19,14 @@ cdef extern from "fuego.cpp":
         void GoInDirection(int dir)
         void GoToNode(SgNode *)
         const SgNode &Root()
+        void AddMove(int, int)
+        void SetToPlay(int)
+        const SgNode *CurrentNode()
 
     cdef cppclass SgNode:
         int HasProp(int)
         int GetStringProp(int, string *)
+        int NodePlayer()
 
     ctypedef int SgPoint
     ctypedef int SgBlackWhite
@@ -41,11 +45,13 @@ cdef extern from "fuego.cpp":
         int IsEmpty(SgPoint) nogil
         int IsLegal(SgPoint) nogil
         void Play(SgPoint) nogil
+        void Play(SgPoint, int) nogil
         int InAtari(SgPoint) nogil
         int NumStones(SgPoint) nogil
         int NuCapturedStones() nogil
         void NeighborBlocks(SgPoint, SgBlackWhite, int, SgPoint []) nogil
         void Undo() nogil
+        void SetToPlay(int)
 
     # constants
     int SG_EMPTY
@@ -59,6 +65,7 @@ cdef extern from "fuego.cpp":
     void fuego_init()
     GoGame *read_game(char *gamefile, GoBoard *b)
     void print_board(const GoBoard &)
+    void print_game(const GoGame &)
 
     int SgOppBW(int) nogil
     int SgIsSpecialMove(int)
@@ -102,7 +109,10 @@ cdef class PyGoGame:
     def __cinit__(self, char *gamefile):
         # we need our own copy of the board for checking captures, etc.
         self.board = new GoBoard(19)
-        self.game = read_game(gamefile, self.board)
+        if gamefile[0] != 0:
+            self.game = read_game(gamefile, self.board)
+        else:
+            self.game = new GoGame()
         self.movenumber = 0
         self.invalid = 0
 
@@ -166,7 +176,7 @@ cdef class PyGoGame:
                 return
 
             # update our copy of the board
-            self.board.Play(move)
+            self.board.Play(move, self.game.CurrentNode().NodePlayer())
 
             # update stone age array
             self.movenumber += 1
@@ -298,7 +308,6 @@ cdef class PyGoGame:
                         sensible[row, col] = 0
 
     cpdef legal(self, np.int32_t[:, :] legal):
-                     
         '''Moves which are legal.'''
         cdef:
             int row, col, idx
@@ -309,3 +318,20 @@ cdef class PyGoGame:
                 for col in range(legal.shape[1]):
                     pt = Pt(col + 1, row + 1)
                     legal[row, col] = 1 if self.board.IsLegal(pt) else 0
+
+    cpdef make_move(self, int color, int row, int col):
+        cdef:
+            int move
+        move = Pt(col, row) if (row > 0) else SG_PASS
+        self.game.AddMove(move, color)
+        self.game_len += 1
+
+    def rewind(self):
+        self.game.GoToNode(& self.game.Root())
+        self.board.Init(self.game.Board().Size(),
+                        self.game.Board().Rules())
+        self.board.SetToPlay(self.game.Board().ToPlay())
+
+    cpdef set_to_play(self, int to_play):
+        self.game.SetToPlay(to_play)
+        self.board.SetToPlay(to_play)

@@ -8,7 +8,6 @@ froot = os.getenv('FUEGO_ROOT')
 assert os.path.isdir(froot)
 fuego_subdirs = [os.path.join(froot, sd) for sd in "features go smartgame".split(' ')]
 fuego_libraries = [lib for subdir in fuego_subdirs for lib in glob.glob(os.path.join(subdir, 'lib*.a'))]
-print (fuego_libraries)
 
 def make_ext(modname, pyxfilename):
     from distutils.extension import Extension

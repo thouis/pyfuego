@@ -3,7 +3,6 @@ pyximport.install()
 
 import threading
 import multiprocessing
-import Queue
 import h5py
 import go
 import numpy as np
@@ -12,7 +11,8 @@ import sys
 NUM_FEATURES = 48
 NUM_LABELS = 2  # row, col
 
-def calc_features(game, alphago_compatible=True):
+
+def get_current_features(game, write_fn, alphago_compatible=True):
     # preallocate space
     stones = np.zeros((19, 19), dtype=np.int32)
     libs = np.zeros((19, 19), dtype=np.int32)
@@ -24,78 +24,79 @@ def calc_features(game, alphago_compatible=True):
     ladder_escape = np.zeros((19, 19), dtype=np.int32)
     sensible = np.zeros((19, 19), dtype=np.int32)
     legal = np.zeros((19, 19), dtype=np.int32)
+    game.liberties(libs)
+    game.black_white_empty(stones)
+    game.stone_age(ages)
+    game.captures_liberties_selfatari_by_play(capture_ct,
+                                              liberties_after,
+                                              atari_ct)
+    game.ladder_capture_escape(ladder_capture,
+                               ladder_escape)
+    game.sensibleness(sensible)
+    game.legal(legal)
 
+    # 0,1,2 - my stones, their stones, empty
+    write_fn(stones == game.current_player())
+    write_fn(stones == go.opposite(game.current_player()))
+    write_fn(stones == go.EMPTY)
+
+    # 3 - all ones
+    write_fn(1)
+
+    if alphago_compatible:
+        # 4-11 - Turns since
+        for idx in range(0, 7):
+            write_fn(ages == idx + 1)
+        write_fn(ages >= 8)
+    else:
+        for idx in range(8):
+            write_fn(0)
+
+    # 12-19 - Liberties of groups
+    for idx in range(0, 7):
+        write_fn(libs == idx + 1)
+    write_fn(libs >= 8)
+
+    # 20-27 - Capture size
+    for idx in range(0, 7):
+        write_fn(capture_ct == idx)
+    write_fn(capture_ct >= 7)
+
+    # 28-35 - Self-atari size
+    # 0th plane == 1 stone in atari
+    for idx in range(0, 7):
+        write_fn(atari_ct == idx + 1)
+    write_fn(atari_ct >= 8)
+
+    # 36-43 - Liberties after move
+    for idx in range(0, 7):
+        write_fn(liberties_after == idx + 1)
+    write_fn(liberties_after >= 8)
+
+    # 44 - Ladder capture move
+    write_fn(ladder_capture)
+
+    # 45 - Ladder escape move
+    write_fn(ladder_escape)
+
+    # 46 - Senible - legal and does not fill eyes
+    write_fn(sensible)
+
+    # not really alphago
+    write_fn(legal)
+
+
+def calc_features(game, alphago_compatible=True):
     features = np.empty((game.gamelen(), NUM_FEATURES, 19, 19), dtype=np.uint8)
     cur_player = np.empty((game.gamelen(),), dtype=np.int8)
     cur_move = np.empty((game.gamelen(), 2), dtype=np.int8)
 
     for move_idx in range(game.gamelen()):
-        game.liberties(libs)
-        game.black_white_empty(stones)
-        game.stone_age(ages)
-        game.captures_liberties_selfatari_by_play(capture_ct,
-                                                  liberties_after,
-                                                  atari_ct)
-        game.ladder_capture_escape(ladder_capture,
-                                   ladder_escape)
-        game.sensibleness(sensible)
-        game.legal(legal)
-
         offset = range(NUM_FEATURES + 1).__iter__()
-
         def next_feature(val):
-            features[move_idx, offset.next(), ...] = val
+            features[move_idx, next(offset), ...] = val
 
-        # 0,1,2 - my stones, their stones, empty
-        next_feature(stones == game.current_player())
-        next_feature(stones == go.opposite(game.current_player()))
-        next_feature(stones == go.EMPTY)
-
-        # 3 - all ones
-        next_feature(1)
-
-        if alphago_compatible:
-            # 4-11 - Turns since
-            for idx in range(0, 7):
-                next_feature(ages == idx + 1)
-            next_feature(ages >= 8)
-        else:
-            for idx in range(8):
-                next_feature(0)
-
-        # 12-19 - Liberties of groups
-        for idx in range(0, 7):
-            next_feature(libs == idx + 1)
-        next_feature(libs >= 8)
-
-        # 20-27 - Capture size
-        for idx in range(0, 7):
-            next_feature(capture_ct == idx)
-        next_feature(capture_ct >= 7)
-
-        # 28-35 - Self-atari size
-        # 0th plane == 1 stone in atari
-        for idx in range(0, 7):
-            next_feature(atari_ct == idx + 1)
-        next_feature(atari_ct >= 8)
-
-        # 36-43 - Liberties after move
-        for idx in range(0, 7):
-            next_feature(liberties_after == idx + 1)
-        next_feature(liberties_after >= 8)
-
-        # 44 - Ladder capture move
-        next_feature(ladder_capture)
-
-        # 45 - Ladder escape move
-        next_feature(ladder_escape)
-
-        # 46 - Senible - legal and does not fill eyes
-        next_feature(sensible)
-
-        # not really alphago
-        next_feature(legal)
-
+        get_current_features(game, next_feature, alphago_compatible)
         # record player color and move
         cur_player[move_idx] = game.current_player()
         cur_move[move_idx] = game.current_move()
@@ -103,6 +104,7 @@ def calc_features(game, alphago_compatible=True):
         game.next_move()
 
     return features, cur_player, cur_move
+
 
 def numeric_rank(s, default=None):
     if s.endswith(','):
@@ -187,7 +189,7 @@ def write_hdf5(in_q, h5_out):
         filecount -= 1
         if filecount == 0:
             break
-        print "in flight", filecount
+        print("in flight", filecount)
 
     gamenames = h5.require_dataset('gamefiles', (len(names),), dtype=h5py.special_dtype(vlen=bytes))
     gameoffsets = h5.require_dataset('gameoffsets', (len(offsets),), dtype=int)
